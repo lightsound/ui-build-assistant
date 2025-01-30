@@ -4,37 +4,42 @@
 chrome.storage.local.set({ tabs: {} });
 
 // functions
-function valid(tabId) {
-  chrome.storage.local.get("tabs", function ({ tabs }) {
-    chrome.tabs.executeScript(tabId, { code: "document.body.classList.add('UI_Build_Assistant')" });
-    chrome.storage.local.set({ tabs: { ...tabs, [tabId]: true } });
+async function valid(tabId) {
+  const { tabs } = await chrome.storage.local.get("tabs");
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => document.body.classList.add("UI_Build_Assistant"),
   });
+  await chrome.storage.local.set({ tabs: { ...tabs, [tabId]: true } });
 }
 
-function invalid(tabId) {
-  chrome.storage.local.get("tabs", function ({ tabs }) {
-    chrome.tabs.executeScript(tabId, { code: "document.body.classList.remove('UI_Build_Assistant')" });
-    chrome.storage.local.set({ tabs: { ...tabs, [tabId]: false } });
+async function invalid(tabId) {
+  const { tabs } = await chrome.storage.local.get("tabs");
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => document.body.classList.remove("UI_Build_Assistant"),
   });
+  await chrome.storage.local.set({ tabs: { ...tabs, [tabId]: false } });
 }
 
-function initialize(tabId) {
-  chrome.tabs.insertCSS(tabId, { file: "style.css" });
-  chrome.storage.local.get("tabs", function ({ tabs }) {
-    if (tabs[tabId]) {
-      valid(tabId);
-    }
+async function initialize(tabId) {
+  await chrome.scripting.insertCSS({
+    target: { tabId },
+    files: ["style.css"],
   });
+  const { tabs } = await chrome.storage.local.get("tabs");
+  if (tabs[tabId]) {
+    await valid(tabId);
+  }
 }
 
 // events
-chrome.browserAction.onClicked.addListener(function ({ id: tabId }) {
-  chrome.storage.local.get("tabs", function ({ tabs }) {
-    tabs[tabId] ? invalid(tabId) : valid(tabId);
-  });
+chrome.action.onClicked.addListener(async (tab) => {
+  const { tabs } = await chrome.storage.local.get("tabs");
+  tabs[tab.id] ? await invalid(tab.id) : await valid(tab.id);
 });
 
-chrome.tabs.onUpdated.addListener(function (tabId, { status }) {
+chrome.tabs.onUpdated.addListener((tabId, { status }) => {
   if (status !== "loading") {
     return;
   }
